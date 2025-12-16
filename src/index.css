@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  /* Define your Deep Blue Theme here */
+  --color-brand-dark: #1B3C53;
+  --color-brand-medium: #234C6A;
+  --color-brand-light: #456882;
+  --color-brand-bg: #E3E3E3;
+  --color-brand-white: #FFFFFF;
+}
+
+/* Apply default body styles */
+body {
+  background-color: var(--color-brand-bg);
+  color: #1f2937; /* gray-800 equivalent */
+}
