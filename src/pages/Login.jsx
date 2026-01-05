@@ -15,17 +15,17 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await api.post('/auth/login', { email, password });
-      
+
       // Store Token & Role
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('role', res.data.user.role);
-      
-      const userRole = res.data.user.role;
+      localStorage.setItem('userId', res.data.user.id);
 
+      const userRole = res.data.user.role;
       // --- FIX: Redirect Logic ---
       // Admin AND BranchManager go to Dashboard.
       // Only TeamLead and Employee go to Calendar.
-      if (userRole === 'Admin' || userRole === 'BranchManager') {
+      if (userRole === 'Admin' || userRole === 'BranchManager' || userRole === 'LeadManager') {
         navigate('/dashboard');
       } else {
         navigate('/calendar');
@@ -57,13 +57,13 @@ const Login = () => {
             <label className="text-sm font-medium text-gray-700">Email Address</label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
-              <input 
-                type="email" 
+              <input
+                type="email"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-medium focus:border-transparent outline-none transition"
                 placeholder="name@company.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                required 
+                required
               />
             </div>
           </div>
@@ -72,19 +72,19 @@ const Login = () => {
             <label className="text-sm font-medium text-gray-700">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
-              <input 
-                type="password" 
+              <input
+                type="password"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-medium focus:border-transparent outline-none transition"
                 placeholder="••••••••"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                required 
+                required
               />
             </div>
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="w-full bg-brand-medium hover:bg-brand-dark text-white font-semibold py-3 rounded-lg transition-all shadow-lg disabled:opacity-50"
           >

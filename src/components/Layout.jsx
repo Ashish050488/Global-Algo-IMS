@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, LogOut, Users, UserPlus, FileClock, Calendar, LifeBuoy, UploadCloud, Share2, CheckSquare, Archive,FileSpreadsheet } from 'lucide-react';
+import { LayoutDashboard, LogOut, Users, UserPlus, FileClock, Calendar, LifeBuoy, UploadCloud, Share2, CheckSquare, Archive, FileSpreadsheet } from 'lucide-react';
 
 const Layout = () => {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ const Layout = () => {
 
         <nav className="flex-1 p-4 space-y-2">
 
-          {/* DASHBOARD */}
+          {/* 1. DASHBOARD (Everyone) */}
           <button
             onClick={() => navigate('/dashboard')}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/dashboard')}`}
@@ -36,19 +36,29 @@ const Layout = () => {
             <span>Dashboard</span>
           </button>
 
-          {/* ADMIN: UPLOAD */}
-          {role === 'Admin' && (
-            <button
-              onClick={() => navigate('/admin-upload')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/admin-upload')}`}
-            >
-              <UploadCloud size={20} />
-              <span>Upload Data</span>
-            </button>
+          {/* 2. DATA OPS: UPLOAD & HISTORY (Admin OR LeadManager) */}
+          {(role === 'Admin' || role === 'LeadManager') && (
+            <>
+              <button
+                onClick={() => navigate('/admin-upload')}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/admin-upload')}`}
+              >
+                <UploadCloud size={20} />
+                <span>Upload Data</span>
+              </button>
+
+              <button
+                onClick={() => navigate('/uploads')}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/uploads')}`}
+              >
+                <FileSpreadsheet size={20} />
+                <span>Upload History</span>
+              </button>
+            </>
           )}
 
-          {/* MANAGERS: DISTRIBUTE LEADS */}
-          {role !== 'Employee' && (
+          {/* 3. DATA OPS: DISTRIBUTE (Managers OR LeadManager) */}
+          {(role !== 'Employee' || role === 'LeadManager') && (
             <button
               onClick={() => navigate('/distribute')}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/distribute')}`}
@@ -58,44 +68,8 @@ const Layout = () => {
             </button>
           )}
 
-          {/* ADMIN: UPLOAD & HISTORY */}
-{role === 'Admin' && (
-  <>
-    
-
-    {/* 2. View History (ADD THIS BUTTON) */}
-    <button
-      onClick={() => navigate('/uploads')}
-      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/uploads')}`}
-    >
-      <FileSpreadsheet size={20} />
-      <span>Upload History</span>
-    </button>
-  </>
-)}
-
-          {/* TASKS (Everyone) */}
-          <button
-            onClick={() => navigate('/tasks')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/tasks')}`}
-          >
-            <CheckSquare size={20} />
-            <span>Task List</span>
-          </button>
-
-          {/* MY LEADS (Everyone EXCEPT Admin) */}
-          {role !== 'Admin' && (
-            <button
-              onClick={() => navigate('/my-leads')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/my-leads')}`}
-            >
-              <Users size={20} />
-              <span>My Leads</span>
-            </button>
-          )}
-
-          {/* ADMIN ONLY: DEAD ARCHIVE */}
-          {role === 'Admin' && (
+          {/* 4. DATA OPS: DEAD ARCHIVE (Admin OR LeadManager) */}
+          {(role === 'Admin' || role === 'LeadManager') && (
             <button
               onClick={() => navigate('/archive')}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/archive')}`}
@@ -105,8 +79,32 @@ const Layout = () => {
             </button>
           )}
 
-          {/* ADD MEMBER (Managers Only) */}
-          {role !== 'Employee' && (
+          {/* --- SECTIONS HIDDEN FROM LEAD MANAGER --- */}
+
+          {/* TASKS (Everyone EXCEPT LeadManager) */}
+          {role !== 'LeadManager' && (
+            <button
+              onClick={() => navigate('/tasks')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/tasks')}`}
+            >
+              <CheckSquare size={20} />
+              <span>Task List</span>
+            </button>
+          )}
+
+          {/* MY LEADS (Everyone EXCEPT Admin & LeadManager) */}
+          {role !== 'Admin' && role !== 'LeadManager' && (
+            <button
+              onClick={() => navigate('/my-leads')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/my-leads')}`}
+            >
+              <Users size={20} />
+              <span>My Leads</span>
+            </button>
+          )}
+
+          {/* TEAM MANAGEMENT (Managers Only, NOT LeadManager) */}
+          {role !== 'Employee' && role !== 'LeadManager' && (
             <button
               onClick={() => navigate('/team')}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/team')}`}
@@ -116,20 +114,21 @@ const Layout = () => {
             </button>
           )}
 
-          {/* SUPPORT / TICKETS */}
-          <button
-            onClick={() => navigate(
-              (role === 'Admin' || role === 'BranchManager') ? '/admin-tickets' : '/raise-ticket'
-            )}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive((role === 'Admin' || role === 'BranchManager') ? '/admin-tickets' : '/raise-ticket')
-              }`}
-          >
-            <LifeBuoy size={20} />
-            <span>{(role === 'Admin' || role === 'BranchManager') ? 'Support Desk' : 'Raise Ticket'}</span>
-          </button>
+          {/* TICKETS (Everyone EXCEPT LeadManager) */}
+          {role !== 'LeadManager' && (
+            <button
+              onClick={() => navigate(
+                (role === 'Admin' || role === 'BranchManager') ? '/admin-tickets' : '/raise-ticket'
+              )}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive((role === 'Admin' || role === 'BranchManager') ? '/admin-tickets' : '/raise-ticket')}`}
+            >
+              <LifeBuoy size={20} />
+              <span>Support Desk</span>
+            </button>
+          )}
 
-          {/* ATTENDANCE MONITOR (Admin Only) */}
-          {role === 'Admin' && (
+          {/* ATTENDANCE MONITOR (Admin & BM Only) */}
+          {(role === 'Admin' || role === 'BranchManager') && (
             <button
               onClick={() => navigate('/admin-attendance')}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/admin-attendance')}`}
@@ -139,16 +138,16 @@ const Layout = () => {
             </button>
           )}
 
-          {/* MY ATTENDANCE HISTORY (Everyone EXCEPT Admin) */}
-         {role !== 'Admin' && role !== 'BranchManager' && (
-  <button
-    onClick={() => navigate('/calendar')}
-    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/calendar')}`}
-  >
-    <Calendar size={20} />
-    <span>Attendance History</span>
-  </button>
-)}
+          {/* MY ATTENDANCE HISTORY (Employees & TL Only) */}
+          {role !== 'Admin' && role !== 'BranchManager' && role !== 'LeadManager' && (
+            <button
+              onClick={() => navigate('/calendar')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/calendar')}`}
+            >
+              <Calendar size={20} />
+              <span>Attendance History</span>
+            </button>
+          )}
 
         </nav>
 
