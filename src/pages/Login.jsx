@@ -15,11 +15,22 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await api.post('/auth/login', { email, password });
+      
+      // Store Token & Role
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('role', res.data.user.role);
       
-      if (res.data.user.role === 'Admin') navigate('/dashboard');
-      else navigate('calendar');
+      const userRole = res.data.user.role;
+
+      // --- FIX: Redirect Logic ---
+      // Admin AND BranchManager go to Dashboard.
+      // Only TeamLead and Employee go to Calendar.
+      if (userRole === 'Admin' || userRole === 'BranchManager') {
+        navigate('/dashboard');
+      } else {
+        navigate('/calendar');
+      }
+
     } catch (err) {
       setError('Invalid Credentials');
     } finally {

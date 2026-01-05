@@ -7,21 +7,18 @@ const AttendanceCalendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [joiningDate, setJoiningDate] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // NEW: Navigation & Role Check
+  const navigate = useNavigate();
+  const role = localStorage.getItem('role');
 
-  // 1. Load Profile (To get Joining Date) & Attendance
+  // --- SECURITY GATEKEEPER ---
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await api.get('/auth/me');
-        setJoiningDate(new Date(res.data.createdAt));
-      } catch (err) {
-        console.error("Failed to load profile");
-        // Fallback: Default to Jan 1, 2024 if API fails
-        setJoiningDate(new Date('2024-01-01'));
-      }
-    };
-    fetchProfile();
-  }, []);
+    // If user is Admin or BranchManager, they have NO business here.
+    if (role === 'Admin' || role === 'BranchManager') {
+      navigate('/dashboard'); // Kick them to Dashboard
+    }
+  }, [role, navigate]);
 
   // 2. Fetch Month Data whenever Date Changes
   useEffect(() => {

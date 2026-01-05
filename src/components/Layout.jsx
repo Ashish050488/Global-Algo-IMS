@@ -61,14 +61,7 @@ const Layout = () => {
           {/* ADMIN: UPLOAD & HISTORY */}
 {role === 'Admin' && (
   <>
-    {/* 1. Upload New File */}
-    <button
-      onClick={() => navigate('/admin-upload')}
-      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/admin-upload')}`}
-    >
-      <UploadCloud size={20} />
-      <span>Upload Data</span>
-    </button>
+    
 
     {/* 2. View History (ADD THIS BUTTON) */}
     <button
@@ -147,15 +140,15 @@ const Layout = () => {
           )}
 
           {/* MY ATTENDANCE HISTORY (Everyone EXCEPT Admin) */}
-          {role !== 'Admin' && role !== 'BranchManager' && (
-            <button
-              onClick={() => navigate('/calendar')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/calendar')}`}
-            >
-              <Calendar size={20} />
-              <span>Attendance History</span>
-            </button>
-          )}
+         {role !== 'Admin' && role !== 'BranchManager' && (
+  <button
+    onClick={() => navigate('/calendar')}
+    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/calendar')}`}
+  >
+    <Calendar size={20} />
+    <span>Attendance History</span>
+  </button>
+)}
 
         </nav>
 
