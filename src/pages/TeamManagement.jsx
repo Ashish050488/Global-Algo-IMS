@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
 import { UserPlus, Shield, Users, CheckCircle, AlertCircle } from 'lucide-react';
 
 const TeamManagement = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'BranchManager' });
   const [msg, setMsg] = useState({ text: '', type: '' });
   const [loading, setLoading] = useState(false);
   const [mySubordinates, setMySubordinates] = useState([]);
@@ -12,8 +13,8 @@ const TeamManagement = () => {
 
   // --- 1. DETERMINE WHO I CAN CREATE ---
   const getChildRole = () => {
-    if (myRole === 'Admin') return 'BranchManager';
-   if (myRole === 'BranchManager') return 'TeamLead'; // Changed from HR
+    if (myRole === 'Admin') return (formData.role === 'HR' ? 'HR' : 'BranchManager');
+    if (myRole === 'HR' || myRole === 'BranchManager') return 'TeamLead';
     if (myRole === 'TeamLead') return 'Employee';
     return 'None';
   };
@@ -35,16 +36,17 @@ const TeamManagement = () => {
   };
 
   const handleDelete = async (userId) => {
-  if(!window.confirm("Are you sure? This will fire the employee and return their leads to you.")) return;
-  
-  try {
-    await api.delete(`/auth/user/${userId}`);
-    alert("User Removed.");
-    fetchTeam(); // Refresh list
-  } catch (err) {
-    alert("Failed to delete user");
-  }
-};
+    if (!window.confirm("Are you sure? This will fire the employee and return their leads to you.")) return;
+
+    try {
+      await api.delete(`/auth/user/${userId}`);
+      alert("User Removed.");
+      fetchTeam();
+    } catch (err) {
+      alert("Failed to delete user");
+    }
+  };
+
   // --- 3. HANDLE CREATE USER ---
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,12 +54,11 @@ const TeamManagement = () => {
 
     try {
       setLoading(true);
-      // The backend 'register' endpoint automatically links the new user to ME (reportsTo: req.user.id)
       await api.post('/auth/register', formData);
-      
+
       setMsg({ text: `Success! Created new ${childRole}: ${formData.name}`, type: 'success' });
-      setFormData({ name: '', email: '', password: '' }); // Reset Form
-      fetchTeam(); // Refresh List
+      setFormData({ name: '', email: '', password: '', role: 'BranchManager' });
+      fetchTeam();
     } catch (err) {
       setMsg({ text: err.response?.data?.msg || "Failed to create user", type: 'error' });
     } finally {
@@ -71,7 +72,7 @@ const TeamManagement = () => {
 
   return (
     <div className="max-w-6xl mx-auto flex gap-8">
-      
+
       {/* --- LEFT PANEL: CREATE USER --- */}
       <div className="w-1/3 bg-white p-6 rounded-xl shadow-lg border-t-4 border-brand-medium h-fit">
         <div className="flex items-center gap-3 mb-6">
@@ -94,42 +95,60 @@ const TeamManagement = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Only Admin chooses what to create: BranchManager or HR */}
+          {myRole === 'Admin' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Create Role</label>
+              <select
+                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-medium outline-none bg-gray-50"
+                value={formData.role}
+                onChange={e => setFormData({ ...formData, role: e.target.value })}
+              >
+                <option value="BranchManager">BranchManager</option>
+                <option value="HR">HR</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">Admin can create BranchManagers or HR.</p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               required
               className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-medium outline-none"
               placeholder={`e.g. John Doe (${childRole})`}
               value={formData.name}
-              onChange={e => setFormData({...formData, name: e.target.value})}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-            <input 
-              type="email" 
+            <input
+              type="email"
               required
               className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-medium outline-none"
               placeholder="john@company.com"
               value={formData.email}
-              onChange={e => setFormData({...formData, email: e.target.value})}
+              onChange={e => setFormData({ ...formData, email: e.target.value })}
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Initial Password</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               required
               className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-medium outline-none"
               placeholder="e.g. 123456"
               value={formData.password}
-              onChange={e => setFormData({...formData, password: e.target.value})}
+              onChange={e => setFormData({ ...formData, password: e.target.value })}
             />
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="w-full bg-brand-medium text-white font-bold py-3 rounded-lg hover:bg-brand-dark transition flex items-center justify-center gap-2"
           >
@@ -149,7 +168,7 @@ const TeamManagement = () => {
             Total: {mySubordinates.length}
           </span>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-4">
           {mySubordinates.length === 0 ? (
             <div className="text-center py-10 text-gray-400">
@@ -177,7 +196,10 @@ const TeamManagement = () => {
                       </span>
                     </td>
                     <td className="p-3">
-                      <button onClick={() => handleDelete(sub._id)}    className="text-red-500 hover:text-red-700 text-xs font-bold disabled:opacity-50" >
+                      <button
+                        onClick={() => handleDelete(sub._id)}
+                        className="text-red-500 hover:text-red-700 text-xs font-bold disabled:opacity-50"
+                      >
                         Remove (Admin Only)
                       </button>
                     </td>

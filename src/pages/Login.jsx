@@ -22,10 +22,9 @@ const Login = () => {
       localStorage.setItem('userId', res.data.user.id);
 
       const userRole = res.data.user.role;
-      // --- FIX: Redirect Logic ---
-      // Admin AND BranchManager go to Dashboard.
-      // Only TeamLead and Employee go to Calendar.
-      if (userRole === 'Admin' || userRole === 'BranchManager' || userRole === 'LeadManager') {
+
+      // Redirect Logic
+      if (userRole === 'Admin' || userRole === 'BranchManager' || userRole === 'HR' || userRole === 'LeadManager') {
         navigate('/dashboard');
       } else {
         navigate('/calendar');

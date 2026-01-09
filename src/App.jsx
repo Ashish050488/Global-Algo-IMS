@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import PrivateRoute from './components/PrivateRoute';
-import Layout from './components/Layout'; // Import the new layout
+import Layout from './components/Layout';
 import MyLeads from './pages/MyLeads';
 import TeamManagement from './pages/TeamManagement';
 import UploadHistory from './pages/UploadHistory';
@@ -17,6 +17,14 @@ import AdminUpload from './pages/AdminUpload';
 import LeadDistribution from './pages/LeadDistribution';
 import LeadLifecycle from './pages/LeadLifecycle';
 import ArchivedLeads from './pages/ArchivedLeads';
+
+// HR Pages
+import HrHeadcount from './pages/HrHeadcount';
+import HrOrgChart from './pages/HrOrgChart';
+import HrPayroll from './pages/HrPayroll';
+
+// HR-only guard
+import HrRoute from './components/HrRoute';
 
 function App() {
   return (
@@ -41,8 +49,33 @@ function App() {
           <Route path="/distribute" element={<LeadDistribution />} />
           <Route path="/archive" element={<ArchivedLeads />} />
           <Route path="/lead-lifecycle/:id" element={<LeadLifecycle />} />
-        </Route>
 
+          {/* HR MODULE (HR ONLY) */}
+          <Route
+            path="/hr/headcount"
+            element={
+              <HrRoute>
+                <HrHeadcount />
+              </HrRoute>
+            }
+          />
+          <Route
+            path="/hr/org-chart"
+            element={
+              <HrRoute>
+                <HrOrgChart />
+              </HrRoute>
+            }
+          />
+          <Route
+            path="/hr/payroll"
+            element={
+              <HrRoute>
+                <HrPayroll />
+              </HrRoute>
+            }
+          />
+        </Route>
       </Routes>
     </Router>
   );

@@ -1,6 +1,21 @@
 import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, LogOut, Users, UserPlus, FileClock, Calendar, LifeBuoy, UploadCloud, Share2, CheckSquare, Archive, FileSpreadsheet } from 'lucide-react';
+import {
+  LayoutDashboard,
+  LogOut,
+  Users,
+  UserPlus,
+  Calendar,
+  LifeBuoy,
+  UploadCloud,
+  Share2,
+  CheckSquare,
+  Archive,
+  FileSpreadsheet,
+  Network,
+  BadgeDollarSign,
+  UsersRound
+} from 'lucide-react';
 
 const Layout = () => {
   const navigate = useNavigate();
@@ -12,22 +27,24 @@ const Layout = () => {
     navigate('/');
   };
 
-  const isActive = (path) => location.pathname === path
-    ? "bg-brand-medium text-white"
-    : "text-gray-300 hover:bg-brand-medium/50 hover:text-white";
+  const isActive = (path) =>
+    location.pathname === path
+      ? "bg-brand-medium text-white"
+      : "text-gray-300 hover:bg-brand-medium/50 hover:text-white";
 
   return (
     <div className="flex h-screen overflow-hidden bg-brand-bg">
       {/* Sidebar */}
       <aside className="w-64 bg-brand-dark shadow-xl flex flex-col">
         <div className="p-6 border-b border-brand-light">
-          <h1 className="text-2xl font-bold text-white tracking-wider">IMS<span className="text-brand-light">PRO</span></h1>
+          <h1 className="text-2xl font-bold text-white tracking-wider">
+            IMS<span className="text-brand-light">PRO</span>
+          </h1>
           <p className="text-xs text-gray-400 mt-1">System v1.0</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
-
-          {/* 1. DASHBOARD (Everyone) */}
+          {/* DASHBOARD (Everyone) */}
           <button
             onClick={() => navigate('/dashboard')}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/dashboard')}`}
@@ -36,7 +53,36 @@ const Layout = () => {
             <span>Dashboard</span>
           </button>
 
-          {/* 2. DATA OPS: UPLOAD & HISTORY (Admin OR LeadManager) */}
+          {/* HR MODULE (ONLY HR) */}
+          {role === 'HR' && (
+            <>
+              <button
+                onClick={() => navigate('/hr/headcount')}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/hr/headcount')}`}
+              >
+                <UsersRound size={20} />
+                <span>Headcount</span>
+              </button>
+
+              <button
+                onClick={() => navigate('/hr/org-chart')}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/hr/org-chart')}`}
+              >
+                <Network size={20} />
+                <span>Org Chart</span>
+              </button>
+
+              <button
+                onClick={() => navigate('/hr/payroll')}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/hr/payroll')}`}
+              >
+                <BadgeDollarSign size={20} />
+                <span>Payroll</span>
+              </button>
+            </>
+          )}
+
+          {/* UPLOAD DATA + HISTORY (Admin OR LeadManager) */}
           {(role === 'Admin' || role === 'LeadManager') && (
             <>
               <button
@@ -57,8 +103,8 @@ const Layout = () => {
             </>
           )}
 
-          {/* 3. DATA OPS: DISTRIBUTE (Managers OR LeadManager) */}
-          {(role !== 'Employee' || role === 'LeadManager') && (
+          {/* DISTRIBUTE LEADS (Managers OR LeadManager) BUT NOT HR */}
+          {((role !== 'Employee' && role !== 'HR') || role === 'LeadManager') && (
             <button
               onClick={() => navigate('/distribute')}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/distribute')}`}
@@ -68,7 +114,7 @@ const Layout = () => {
             </button>
           )}
 
-          {/* 4. DATA OPS: DEAD ARCHIVE (Admin OR LeadManager) */}
+          {/* DEAD ARCHIVE (Admin OR LeadManager) */}
           {(role === 'Admin' || role === 'LeadManager') && (
             <button
               onClick={() => navigate('/archive')}
@@ -78,8 +124,6 @@ const Layout = () => {
               <span>Dead Archive</span>
             </button>
           )}
-
-          {/* --- SECTIONS HIDDEN FROM LEAD MANAGER --- */}
 
           {/* TASKS (Everyone EXCEPT LeadManager) */}
           {role !== 'LeadManager' && (
@@ -92,8 +136,8 @@ const Layout = () => {
             </button>
           )}
 
-          {/* MY LEADS (Everyone EXCEPT Admin & LeadManager) */}
-          {role !== 'Admin' && role !== 'LeadManager' && (
+          {/* MY LEADS (Everyone EXCEPT Admin, LeadManager, HR) */}
+          {role !== 'Admin' && role !== 'LeadManager' && role !== 'HR' && (
             <button
               onClick={() => navigate('/my-leads')}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/my-leads')}`}
@@ -114,21 +158,31 @@ const Layout = () => {
             </button>
           )}
 
-          {/* TICKETS (Everyone EXCEPT LeadManager) */}
+          {/* SUPPORT DESK (Everyone EXCEPT LeadManager) */}
           {role !== 'LeadManager' && (
             <button
-              onClick={() => navigate(
-                (role === 'Admin' || role === 'BranchManager') ? '/admin-tickets' : '/raise-ticket'
-              )}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive((role === 'Admin' || role === 'BranchManager') ? '/admin-tickets' : '/raise-ticket')}`}
+              onClick={() =>
+                navigate(
+                  (role === 'Admin' || role === 'BranchManager' || role === 'HR')
+                    ? '/admin-tickets'
+                    : '/raise-ticket'
+                )
+              }
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+                isActive(
+                  (role === 'Admin' || role === 'BranchManager' || role === 'HR')
+                    ? '/admin-tickets'
+                    : '/raise-ticket'
+                )
+              }`}
             >
               <LifeBuoy size={20} />
               <span>Support Desk</span>
             </button>
           )}
 
-          {/* ATTENDANCE MONITOR (Admin & BM Only) */}
-          {(role === 'Admin' || role === 'BranchManager') && (
+          {/* STAFF ATTENDANCE (Admin, BM, HR) */}
+          {(role === 'Admin' || role === 'BranchManager' || role === 'HR') && (
             <button
               onClick={() => navigate('/admin-attendance')}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/admin-attendance')}`}
@@ -139,7 +193,7 @@ const Layout = () => {
           )}
 
           {/* MY ATTENDANCE HISTORY (Employees & TL Only) */}
-          {role !== 'Admin' && role !== 'BranchManager' && role !== 'LeadManager' && (
+          {role !== 'Admin' && role !== 'BranchManager' && role !== 'HR' && role !== 'LeadManager' && (
             <button
               onClick={() => navigate('/calendar')}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/calendar')}`}
@@ -148,7 +202,6 @@ const Layout = () => {
               <span>Attendance History</span>
             </button>
           )}
-
         </nav>
 
         {/* User Info & Logout */}
