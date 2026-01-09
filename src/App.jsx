@@ -17,6 +17,7 @@ import AdminUpload from './pages/AdminUpload';
 import LeadDistribution from './pages/LeadDistribution';
 import LeadLifecycle from './pages/LeadLifecycle';
 import ArchivedLeads from './pages/ArchivedLeads';
+import MobileBlocker from './components/MobileBlocker';
 
 // HR Pages
 import HrHeadcount from './pages/HrHeadcount';
@@ -28,6 +29,7 @@ import HrRoute from './components/HrRoute';
 
 function App() {
   return (
+    <MobileBlocker>
     <Router>
       <Routes>
         {/* Public Route */}
@@ -78,6 +80,7 @@ function App() {
         </Route>
       </Routes>
     </Router>
+    </MobileBlocker>
   );
 }
 

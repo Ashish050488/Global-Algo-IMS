@@ -1,200 +1,172 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 import api from '../api/axios';
-import { Calendar, Check, X, AlertTriangle, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ShieldCheck, User, Umbrella, Clock } from 'lucide-react';
 
 const AttendanceCalendar = () => {
-  const [records, setRecords] = useState([]);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [joiningDate, setJoiningDate] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState("");
+  const [hrMode, setHrMode] = useState("holiday"); // 'holiday' or 'leave'
   
-  // NEW: Navigation & Role Check
-  const navigate = useNavigate();
   const role = localStorage.getItem('role');
+  const isHR = role === 'Admin' || role === 'BranchManager';
 
-  // --- SECURITY GATEKEEPER ---
   useEffect(() => {
-    // If user is Admin or BranchManager, they have NO business here.
-    if (role === 'Admin' || role === 'BranchManager') {
-      navigate('/dashboard'); // Kick them to Dashboard
-    }
-  }, [role, navigate]);
+    fetchInitialData();
+  }, []);
 
-  // 2. Fetch Month Data whenever Date Changes
-  useEffect(() => {
-    fetchMonthData();
-  }, [currentDate]);
-
-  const fetchMonthData = async () => {
-    const month = currentDate.getMonth() + 1;
-    const year = currentDate.getFullYear();
+  const fetchInitialData = async () => {
     try {
-      const res = await api.get(`/attendance/calendar?month=${month}&year=${year}`);
-      setRecords(res.data);
+      // FIX 1: Removed '/api' prefix
+      const eventsRes = await api.get('/calendar/events');
+      const usersRes = await api.get('/auth/downline');
+      
+      setUsers(usersRes.data);
+      formatEvents(eventsRes.data);
     } catch (err) {
-      console.error("Failed to fetch calendar");
-    } finally {
-      setLoading(false);
+      console.error("Failed to load data", err);
     }
   };
 
-  // --- LOGIC: 16 Hours 30 Mins Rule ---
-  const MAX_OFFLINE_SECONDS = 59400; 
-
-  const getDayStatus = (day) => {
-    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    
-    // 1. Find Record
-    const record = records.find(r => r.date === dateStr);
-    
-    // 2. Future Date?
-    const checkDate = new Date(dateStr);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    
-    if (checkDate > today) return { type: 'future', label: '' };
-
-    // 3. No Record = Absent
-    if (!record) return { type: 'absent', label: 'Absent' };
-
-    // 4. Check Offline Limit
-    const offlineSeconds = record.durations?.Offline || 0;
-    
-    if (offlineSeconds > MAX_OFFLINE_SECONDS) {
-      return { type: 'absent', label: 'Over Limit' };
-    }
-
-    // 5. Late Check
-    if (record.isLate) {
-        return { type: 'late', label: `Late: ${record.lateBy}m` };
-    }
-
-    return { type: 'present', label: 'Present' };
+  const formatEvents = (rawEvents) => {
+    const formatted = rawEvents.map(evt => ({
+      id: evt._id,
+      title: evt.title,
+      start: evt.date,
+      // Global Holidays = Red, Manual Events = Blue
+      backgroundColor: evt.isGlobal ? '#ef4444' : '#3b82f6',
+      extendedProps: { 
+        type: evt.type,
+        isGlobal: evt.isGlobal 
+      }
+    }));
+    setEvents(formatted);
   };
 
-  // --- CALENDAR GRID GENERATION (ACCURATE) ---
-  const getCalendarLayout = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    
-    // Total days in month
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    // Day of week the 1st falls on (0=Sun, 1=Mon...)
-    const firstDayOfWeek = new Date(year, month, 1).getDay();
-    
-    const blanks = Array(firstDayOfWeek).fill(null);
-    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-    
-    return { blanks, days };
+  // Logic to handle HR clicks on the calendar
+  const handleDateClick = async (arg) => {
+    if (!isHR) return;
+
+    if (hrMode === "holiday") {
+      const title = prompt("Enter Holiday Name (e.g., Diwali):");
+      if (title) {
+        // FIX 2: Removed '/api' prefix
+        await api.post('/calendar/events', { title, date: arg.dateStr, type: 'Holiday' });
+      }
+    } else {
+      if (!selectedUser) return alert("Please select an employee first!");
+      const type = prompt("Type 'P' for Paid Leave or 'H' for Half Day:").toUpperCase();
+      
+      const status = type === 'P' ? 'Paid Leave' : type === 'H' ? 'Half Day' : null;
+      if (status) {
+        // FIX 3: Removed '/api' prefix
+        await api.post('/attendance/hr-mark', { 
+          userId: selectedUser, 
+          date: arg.dateStr, 
+          status,
+          remarks: 'HR Manual Entry'
+        });
+        alert(`Marked ${status} for user`);
+      }
+    }
+    fetchInitialData();
   };
 
-  const { blanks, days } = getCalendarLayout();
+  const handleEventClick = async (info) => {
+    if (!isHR) return;
+    
+    // Allow deleting holidays
+    if (window.confirm(`Remove holiday: ${info.event.title}?`)) {
+       // FIX 4: Removed '/api' prefix
+       await api.delete(`/calendar/events/${info.event.id}`);
+       info.event.remove(); // Remove from UI instantly
+    }
+  };
 
-  // --- NAVIGATION LIMITS ---
-  const today = new Date();
-  const isCurrentMonth = currentDate.getMonth() === today.getMonth() && 
-                        currentDate.getFullYear() === today.getFullYear();
-
-  const isJoiningMonth = joiningDate && 
-                        currentDate.getMonth() === joiningDate.getMonth() && 
-                        currentDate.getFullYear() === joiningDate.getFullYear();
+  // --- NEW: THE SYNC BUTTON ---
+  const syncHolidays = async () => {
+    if(!window.confirm("Import official Indian Holidays for this year?")) return;
+    try {
+      // FIX 5: Removed '/api' prefix
+      const res = await api.post('/calendar/bulk-sync');
+      alert(res.data.msg);
+      fetchInitialData();
+    } catch (err) {
+      alert("Sync failed");
+    }
+  };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-7xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-brand-dark flex items-center gap-2">
-          <Calendar size={32} /> Attendance History
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-800">Attendance & Holiday Manager</h1>
         
-        {/* LEGEND */}
-        <div className="flex gap-4 text-xs font-medium bg-white p-2 rounded-lg shadow-sm">
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-100 border border-green-500 rounded"></div> Present</div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-yellow-50 border border-yellow-500 rounded"></div> Late</div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-100 border border-red-500 rounded"></div> Absent</div>
-        </div>
+        {/* SYNC BUTTON FOR HR */}
+        {isHR && (
+           <button 
+             onClick={syncHolidays}
+             className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow flex items-center gap-2 text-sm font-bold"
+           >
+             <Clock size={16} /> Sync Indian Holidays
+           </button>
+        )}
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-brand-medium">
-        
-        {/* HEADER & NAV */}
-        <div className="flex justify-between items-center mb-6">
-             <h2 className="font-bold text-lg text-gray-700 capitalize">
-               {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-             </h2>
-             <div className="flex gap-2">
-                <button 
-                  onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} 
-                  disabled={isJoiningMonth}
-                  className={`flex items-center gap-1 px-4 py-2 rounded text-sm font-bold transition ${
-                    isJoiningMonth 
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                      : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                  }`}
+      {isHR && (
+        <div className="bg-white p-4 rounded-xl shadow-md mb-6 border-l-4 border-red-500 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col">
+              <label className="text-xs font-bold text-gray-400 uppercase">HR Mode</label>
+              <select 
+                className="border rounded p-1 font-bold text-sm outline-none focus:ring-2 focus:ring-red-200"
+                value={hrMode}
+                onChange={(e) => setHrMode(e.target.value)}
+              >
+                <option value="holiday">Create/Remove Holidays</option>
+                <option value="leave">Mark Employee Leaves</option>
+              </select>
+            </div>
+
+            {hrMode === "leave" && (
+              <div className="flex flex-col">
+                <label className="text-xs font-bold text-gray-400 uppercase">Target Employee</label>
+                <select 
+                  className="border rounded p-1 text-sm outline-none focus:ring-2 focus:ring-red-200"
+                  value={selectedUser}
+                  onChange={(e) => setSelectedUser(e.target.value)}
                 >
-                  <ChevronLeft size={16} /> Prev
-                </button>
-                
-                <button 
-                  onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} 
-                  disabled={isCurrentMonth}
-                  className={`flex items-center gap-1 px-4 py-2 rounded text-sm font-bold transition ${
-                    isCurrentMonth 
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                      : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                  }`}
-                >
-                  Next <ChevronRight size={16} />
-                </button>
-             </div>
-        </div>
-
-        {/* GRID */}
-        <div className="grid grid-cols-7 gap-4">
-          {/* Weekday Header */}
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-            <div key={d} className="text-center font-bold text-gray-400 uppercase text-xs mb-2">{d}</div>
-          ))}
-          
-          {/* Blank Spaces */}
-          {blanks.map((_, i) => (
-             <div key={`b-${i}`} className="min-h-[100px]"></div>
-          ))}
-
-          {/* Days */}
-          {days.map(day => {
-            const status = getDayStatus(day);
-            let bgClass = "bg-gray-50 border-gray-200 text-gray-400"; // Default/Future
-            
-            if (status.type === 'present') bgClass = "bg-green-50 border-green-200 text-green-800";
-            if (status.type === 'late') bgClass = "bg-yellow-50 border-yellow-300 text-yellow-800";
-            if (status.type === 'absent') bgClass = "bg-red-50 border-red-200 text-red-800";
-
-            return (
-              <div key={day} className={`border rounded-lg p-4 min-h-[100px] flex flex-col justify-between transition hover:shadow-md ${bgClass}`}>
-                <span className="font-bold text-lg">{day}</span>
-                <div className="text-xs font-bold flex flex-col gap-1">
-                  {status.type !== 'future' && (
-                    <div className="flex items-center gap-1">
-                      {status.type === 'present' && <Check size={14} />}
-                      {status.type === 'late' && <Clock size={14} />}
-                      {status.type === 'absent' && <X size={14} />}
-                      {status.label}
-                    </div>
-                  )}
-                </div>
+                  <option value="">-- Select Staff --</option>
+                  {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+                </select>
               </div>
-            );
-          })}
+            )}
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-red-500 font-bold flex items-center justify-end gap-1">
+               <ShieldCheck size={14}/> HR AUTHORIZATION ACTIVE
+            </p>
+            <p className="text-[10px] text-gray-400">Click a date to apply changes</p>
+          </div>
         </div>
-      </div>
-      
-      <div className="mt-6 bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-800 text-sm flex items-start gap-3">
-        <AlertTriangle size={20} className="shrink-0" />
-        <p>
-          <strong>Policy Reminder:</strong> You are allowed a maximum of 16 hours and 30 minutes of "Offline" time per day. 
-          Exceeding this buffer will automatically mark the day as <strong>Absent</strong> regardless of login time.
-        </p>
+      )}
+
+      <div className="bg-white p-6 rounded-xl shadow-xl">
+        <FullCalendar
+          plugins={[dayGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          dateClick={handleDateClick}
+          eventClick={handleEventClick}
+          events={events}
+          height="75vh"
+          headerToolbar={{
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth'
+          }}
+        />
       </div>
     </div>
   );

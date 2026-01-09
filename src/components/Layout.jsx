@@ -1,20 +1,10 @@
 import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  LogOut,
-  Users,
-  UserPlus,
-  Calendar,
-  LifeBuoy,
-  UploadCloud,
-  Share2,
-  CheckSquare,
-  Archive,
-  FileSpreadsheet,
-  Network,
-  BadgeDollarSign,
-  UsersRound
+  LayoutDashboard, LogOut, Users, UserPlus, FileClock,
+  Calendar, LifeBuoy, UploadCloud, Share2, CheckSquare,
+  Archive, FileSpreadsheet, ShieldCheck, Briefcase,
+  Network, BadgeDollarSign, UsersRound
 } from 'lucide-react';
 
 const Layout = () => {
@@ -32,6 +22,9 @@ const Layout = () => {
       ? "bg-brand-medium text-white"
       : "text-gray-300 hover:bg-brand-medium/50 hover:text-white";
 
+  // Helper to check if the user has HR-level permissions
+  const isManagement = role === 'Admin' || role === 'BranchManager' || role === 'HR';
+
   return (
     <div className="flex h-screen overflow-hidden bg-brand-bg">
       {/* Sidebar */}
@@ -43,8 +36,9 @@ const Layout = () => {
           <p className="text-xs text-gray-400 mt-1">System v1.0</p>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
-          {/* DASHBOARD (Everyone) */}
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+
+          {/* 1. DASHBOARD (Everyone) */}
           <button
             onClick={() => navigate('/dashboard')}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/dashboard')}`}
@@ -53,9 +47,10 @@ const Layout = () => {
             <span>Dashboard</span>
           </button>
 
-          {/* HR MODULE (ONLY HR) */}
+          {/* 2. TEAM'S NEW HR MODULES (Strictly HR Role) */}
           {role === 'HR' && (
             <>
+              <div className="pt-4 pb-1 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">HR Operations</div>
               <button
                 onClick={() => navigate('/hr/headcount')}
                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/hr/headcount')}`}
@@ -82,9 +77,20 @@ const Layout = () => {
             </>
           )}
 
-          {/* UPLOAD DATA + HISTORY (Admin OR LeadManager) */}
+          {/* 3. YOUR CALENDAR/HOLIDAY MANAGER (Admin/BM/HR) */}
+          {/* This co-exists with the team's modules */}
+          <button
+            onClick={() => navigate('/calendar')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/calendar')}`}
+          >
+            {isManagement ? <ShieldCheck size={20} /> : <Calendar size={20} />}
+            <span>{isManagement ? 'HR & Calendar' : 'Attendance History'}</span>
+          </button>
+
+          {/* 4. DATA OPS: UPLOAD & HISTORY (Admin OR LeadManager) */}
           {(role === 'Admin' || role === 'LeadManager') && (
             <>
+              <div className="pt-4 pb-1 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Data Operations</div>
               <button
                 onClick={() => navigate('/admin-upload')}
                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/admin-upload')}`}
@@ -103,7 +109,7 @@ const Layout = () => {
             </>
           )}
 
-          {/* DISTRIBUTE LEADS (Managers OR LeadManager) BUT NOT HR */}
+          {/* 5. DISTRIBUTION (Managers OR LeadManager) */}
           {((role !== 'Employee' && role !== 'HR') || role === 'LeadManager') && (
             <button
               onClick={() => navigate('/distribute')}
@@ -114,7 +120,7 @@ const Layout = () => {
             </button>
           )}
 
-          {/* DEAD ARCHIVE (Admin OR LeadManager) */}
+          {/* 6. ARCHIVE (Admin OR LeadManager) */}
           {(role === 'Admin' || role === 'LeadManager') && (
             <button
               onClick={() => navigate('/archive')}
@@ -125,7 +131,9 @@ const Layout = () => {
             </button>
           )}
 
-          {/* TASKS (Everyone EXCEPT LeadManager) */}
+          <div className="pt-4 pb-1 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Personal & Support</div>
+
+          {/* TASKS */}
           {role !== 'LeadManager' && (
             <button
               onClick={() => navigate('/tasks')}
@@ -136,7 +144,7 @@ const Layout = () => {
             </button>
           )}
 
-          {/* MY LEADS (Everyone EXCEPT Admin, LeadManager, HR) */}
+          {/* MY LEADS */}
           {role !== 'Admin' && role !== 'LeadManager' && role !== 'HR' && (
             <button
               onClick={() => navigate('/my-leads')}
@@ -147,7 +155,7 @@ const Layout = () => {
             </button>
           )}
 
-          {/* TEAM MANAGEMENT (Managers Only, NOT LeadManager) */}
+          {/* TEAM MANAGEMENT */}
           {role !== 'Employee' && role !== 'LeadManager' && (
             <button
               onClick={() => navigate('/team')}
@@ -158,61 +166,46 @@ const Layout = () => {
             </button>
           )}
 
-          {/* SUPPORT DESK (Everyone EXCEPT LeadManager) */}
+          {/* SUPPORT DESK */}
           {role !== 'LeadManager' && (
             <button
-              onClick={() =>
-                navigate(
-                  (role === 'Admin' || role === 'BranchManager' || role === 'HR')
-                    ? '/admin-tickets'
-                    : '/raise-ticket'
-                )
-              }
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                isActive(
-                  (role === 'Admin' || role === 'BranchManager' || role === 'HR')
-                    ? '/admin-tickets'
-                    : '/raise-ticket'
-                )
-              }`}
+              onClick={() => navigate(
+                (role === 'Admin' || role === 'BranchManager' || role === 'HR') ? '/admin-tickets' : '/raise-ticket'
+              )}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive((role === 'Admin' || role === 'BranchManager' || role === 'HR') ? '/admin-tickets' : '/raise-ticket')}`}
             >
               <LifeBuoy size={20} />
               <span>Support Desk</span>
             </button>
           )}
 
-          {/* STAFF ATTENDANCE (Admin, BM, HR) */}
+          {/* REAL-TIME FLOOR (Renamed from Attendance, but includes team's 'HR' permission) */}
           {(role === 'Admin' || role === 'BranchManager' || role === 'HR') && (
             <button
               onClick={() => navigate('/admin-attendance')}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/admin-attendance')}`}
             >
               <Users size={20} />
-              <span>Staff Attendance</span>
+              <span>Real-time Floor</span>
             </button>
           )}
 
-          {/* MY ATTENDANCE HISTORY (Employees & TL Only) */}
-          {role !== 'Admin' && role !== 'BranchManager' && role !== 'HR' && role !== 'LeadManager' && (
-            <button
-              onClick={() => navigate('/calendar')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/calendar')}`}
-            >
-              <Calendar size={20} />
-              <span>Attendance History</span>
-            </button>
-          )}
         </nav>
 
         {/* User Info & Logout */}
-        <div className="p-4 border-t border-brand-light">
-          <div className="mb-4 px-2">
-            <p className="text-sm text-gray-300">Logged in as</p>
-            <p className="font-semibold text-white">{role}</p>
+        <div className="p-4 border-t border-brand-light bg-brand-dark/50">
+          <div className="mb-4 px-2 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-brand-medium flex items-center justify-center text-white font-bold text-xs">
+              {role ? role[0] : 'U'}
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-400 uppercase font-bold">Role</p>
+              <p className="text-sm font-semibold text-white leading-tight">{role}</p>
+            </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center space-x-2 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg transition-colors"
+            className="w-full flex items-center justify-center space-x-2 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg transition-colors font-bold text-sm"
           >
             <LogOut size={18} />
             <span>Logout</span>
@@ -221,8 +214,10 @@ const Layout = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-8">
-        <Outlet />
+      <main className="flex-1 overflow-y-auto bg-gray-50">
+        <div className="p-8">
+          <Outlet />
+        </div>
       </main>
     </div>
   );
