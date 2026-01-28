@@ -17,11 +17,14 @@ import AdminUpload from './pages/AdminUpload';
 import LeadDistribution from './pages/LeadDistribution';
 import LeadLifecycle from './pages/LeadLifecycle';
 import ArchivedLeads from './pages/ArchivedLeads';
+import MyLeave from './pages/MyLeave';
 
 // HR Pages
 import HrHeadcount from './pages/HrHeadcount';
 import HrOrgChart from './pages/HrOrgChart';
 import HrPayroll from './pages/HrPayroll';
+import HrHolidayCalendar from './pages/HrHolidayCalendar';
+import HrLeaveManagement from './pages/HrLeaveManagement';
 
 // HR-only guard
 import HrRoute from './components/HrRoute';
@@ -50,6 +53,9 @@ function App() {
           <Route path="/archive" element={<ArchivedLeads />} />
           <Route path="/lead-lifecycle/:id" element={<LeadLifecycle />} />
 
+          {/* ✅ Employee Leave Requests */}
+          <Route path="/leave" element={<MyLeave />} />
+
           {/* HR MODULE (HR ONLY) */}
           <Route
             path="/hr/headcount"
@@ -72,6 +78,26 @@ function App() {
             element={
               <HrRoute>
                 <HrPayroll />
+              </HrRoute>
+            }
+          />
+
+          {/* ✅ HR Holiday Calendar */}
+          <Route
+            path="/hr/holidays"
+            element={
+              <HrRoute>
+                <HrHolidayCalendar />
+              </HrRoute>
+            }
+          />
+
+          {/* ✅ HR Leave Management */}
+          <Route
+            path="/hr/leaves"
+            element={
+              <HrRoute>
+                <HrLeaveManagement />
               </HrRoute>
             }
           />

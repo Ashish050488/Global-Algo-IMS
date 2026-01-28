@@ -6,6 +6,7 @@ import {
   Users,
   UserPlus,
   Calendar,
+  CalendarDays,
   LifeBuoy,
   UploadCloud,
   Share2,
@@ -56,6 +57,22 @@ const Layout = () => {
           {/* HR MODULE (ONLY HR) */}
           {role === 'HR' && (
             <>
+              <button
+                onClick={() => navigate('/hr/holidays')}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/hr/holidays')}`}
+              >
+                <CalendarDays size={20} />
+                <span>Holiday Calendar</span>
+              </button>
+
+              <button
+                onClick={() => navigate('/hr/leaves')}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/hr/leaves')}`}
+              >
+                <Calendar size={20} />
+                <span>Leave Management</span>
+              </button>
+
               <button
                 onClick={() => navigate('/hr/headcount')}
                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/hr/headcount')}`}
@@ -200,6 +217,17 @@ const Layout = () => {
             >
               <Calendar size={20} />
               <span>Attendance History</span>
+            </button>
+          )}
+
+          {/* MY LEAVES (Everyone EXCEPT LeadManager) */}
+          {role !== 'LeadManager' && (
+            <button
+              onClick={() => navigate('/leave')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/leave')}`}
+            >
+              <Calendar size={20} />
+              <span>My Leaves</span>
             </button>
           )}
         </nav>
