@@ -220,8 +220,9 @@ const Layout = () => {
             </button>
           )}
 
+
           {/* MY LEAVES (Everyone EXCEPT LeadManager) */}
-          {role !== 'LeadManager' && (
+          {role !== 'Admin' && (
             <button
               onClick={() => navigate('/leave')}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${isActive('/leave')}`}
