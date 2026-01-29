@@ -1,200 +1,304 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 import api from '../api/axios';
-import { Calendar, Check, X, AlertTriangle, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ShieldCheck, Clock, UserCheck } from 'lucide-react';
 
 const AttendanceCalendar = () => {
-  const [records, setRecords] = useState([]);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [joiningDate, setJoiningDate] = useState(null);
-  const [loading, setLoading] = useState(true);
-  
-  // NEW: Navigation & Role Check
-  const navigate = useNavigate();
+  const [events, setEvents] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState("");
+  const [hrMode, setHrMode] = useState("holiday"); // 'holiday' or 'leave'
+  const [loading, setLoading] = useState(false);
+
   const role = localStorage.getItem('role');
 
-  // --- SECURITY GATEKEEPER ---
+  // ✅ Only HR can manage holiday calendar (SYNC / ADD / DELETE)
+  const canManageHolidays = role === 'HR';
+
+  // ✅ Who can mark employee leave (keep as your current intent)
+  // If you want ONLY HR to mark leave also, set this to: role === 'HR'
+  const canMarkLeave = ['HR', 'BranchManager', 'LeadManager'].includes(role);
+
+  // Show control panel if either permission exists
+  const showControlPanel = canManageHolidays || canMarkLeave;
+
   useEffect(() => {
-    // If user is Admin or BranchManager, they have NO business here.
-    if (role === 'Admin' || role === 'BranchManager') {
-      navigate('/dashboard'); // Kick them to Dashboard
+    fetchInitialData();
+    // eslint-disable-next-line
+  }, []);
+
+  // If user cannot manage holidays, force mode to "leave" (if they can mark leave)
+  useEffect(() => {
+    if (!canManageHolidays && canMarkLeave) {
+      setHrMode("leave");
     }
-  }, [role, navigate]);
+    if (!canManageHolidays && !canMarkLeave) {
+      setHrMode("holiday"); // doesn't matter; panel hidden
+    }
+    // eslint-disable-next-line
+  }, [canManageHolidays, canMarkLeave]);
 
-  // 2. Fetch Month Data whenever Date Changes
-  useEffect(() => {
-    fetchMonthData();
-  }, [currentDate]);
-
-  const fetchMonthData = async () => {
-    const month = currentDate.getMonth() + 1;
-    const year = currentDate.getFullYear();
+  const fetchInitialData = async () => {
     try {
-      const res = await api.get(`/attendance/calendar?month=${month}&year=${year}`);
-      setRecords(res.data);
+      setLoading(true);
+
+      // 1. Fetch Global Calendar Events (Holidays/Meetings)
+      const eventsRes = await api.get('/calendar/events');
+
+      // 2. Fetch Users (Only if user can mark leave)
+      if (canMarkLeave) {
+        const usersRes = await api.get('/auth/downline');
+        setUsers(usersRes.data);
+      }
+
+      // 3. Fetch My Attendance (To show personal history)
+      const myAttendanceRes = await api.get(
+        `/attendance/calendar?month=${new Date().getMonth() + 1}&year=${new Date().getFullYear()}`
+      );
+
+      formatAndSetEvents(eventsRes.data, myAttendanceRes.data);
     } catch (err) {
-      console.error("Failed to fetch calendar");
+      console.error("Failed to load calendar data", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- LOGIC: 16 Hours 30 Mins Rule ---
-  const MAX_OFFLINE_SECONDS = 59400; 
+  const formatAndSetEvents = (calendarEvents, attendanceRecords) => {
+    const formattedEvents = [
+      // 1. Global Events (Holidays = Red, Manual Events = Blue)
+      ...calendarEvents.map(evt => ({
+        id: evt._id,
+        title: evt.title,
+        start: evt.date, // Format: YYYY-MM-DD
+        backgroundColor: evt.isGlobal ? '#ef4444' : '#3b82f6',
+        borderColor: 'transparent',
+        extendedProps: { type: 'event', isGlobal: evt.isGlobal }
+      })),
 
-  const getDayStatus = (day) => {
-    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    
-    // 1. Find Record
-    const record = records.find(r => r.date === dateStr);
-    
-    // 2. Future Date?
-    const checkDate = new Date(dateStr);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    
-    if (checkDate > today) return { type: 'future', label: '' };
+      // 2. Attendance Records (My Personal History)
+      ...attendanceRecords.map(rec => {
+        let color = '#10b981'; // Default: Green (Present)
+        let title = 'Present';
 
-    // 3. No Record = Absent
-    if (!record) return { type: 'absent', label: 'Absent' };
+        if (rec.currentStatus === 'Paid Leave') {
+          color = '#8b5cf6'; // Purple
+          title = 'Paid Leave';
+        } else if (rec.currentStatus === 'Half Day') {
+          color = '#f59e0b'; // Amber
+          title = 'Half Day';
+        } else if (rec.isLate) {
+          color = '#fcd34d'; // Yellow
+          title = `Late (${rec.lateBy}m)`;
+        }
 
-    // 4. Check Offline Limit
-    const offlineSeconds = record.durations?.Offline || 0;
-    
-    if (offlineSeconds > MAX_OFFLINE_SECONDS) {
-      return { type: 'absent', label: 'Over Limit' };
-    }
+        return {
+          id: rec._id,
+          title: title,
+          start: rec.date,
+          display: 'background',
+          backgroundColor: color,
+          extendedProps: { type: 'attendance' }
+        };
+      })
+    ];
 
-    // 5. Late Check
-    if (record.isLate) {
-        return { type: 'late', label: `Late: ${record.lateBy}m` };
-    }
-
-    return { type: 'present', label: 'Present' };
+    setEvents(formattedEvents);
   };
 
-  // --- CALENDAR GRID GENERATION (ACCURATE) ---
-  const getCalendarLayout = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    
-    // Total days in month
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    // Day of week the 1st falls on (0=Sun, 1=Mon...)
-    const firstDayOfWeek = new Date(year, month, 1).getDay();
-    
-    const blanks = Array(firstDayOfWeek).fill(null);
-    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-    
-    return { blanks, days };
+  // --- INTERACTION HANDLERS ---
+
+  const handleDateClick = async (arg) => {
+    // MODE A: HOLIDAY MANAGEMENT (ONLY HR)
+    if (hrMode === "holiday") {
+      if (!canManageHolidays) return;
+
+      const title = prompt(`Create Holiday on ${arg.dateStr}? Enter Name:`);
+      if (title) {
+        try {
+          await api.post('/calendar/events', {
+            title,
+            date: arg.dateStr,
+            type: 'Holiday',
+            description: 'Manual Entry'
+          });
+          fetchInitialData();
+        } catch (err) {
+          alert(err?.response?.data?.msg || "Failed to save holiday");
+        }
+      }
+    }
+    // MODE B: EMPLOYEE LEAVE MARKING (HR + Managers)
+    else {
+      if (!canMarkLeave) return;
+
+      if (!selectedUser) return alert("⚠️ Please select an employee from the dropdown first!");
+
+      const type = prompt(
+        `Marking for ${arg.dateStr}.\nType 'P' for Paid Leave\nType 'H' for Half Day`
+      );
+
+      if (!type) return;
+
+      const code = type.toUpperCase();
+      const status = code === 'P' ? 'Paid Leave' : code === 'H' ? 'Half Day' : null;
+
+      if (status) {
+        const remarks = prompt("Enter Remarks (Optional):") || "HR Manual Mark";
+        try {
+          await api.post('/attendance/hr-mark', {
+            userId: selectedUser,
+            date: arg.dateStr,
+            status,
+            remarks
+          });
+          alert(`Success! Marked ${status} for the selected user.`);
+        } catch (err) {
+          alert(err.response?.data?.msg || "Failed to mark attendance");
+        }
+      }
+    }
   };
 
-  const { blanks, days } = getCalendarLayout();
+  const handleEventClick = async (info) => {
+    // ✅ Only HR can delete calendar events
+    if (!canManageHolidays) return;
 
-  // --- NAVIGATION LIMITS ---
-  const today = new Date();
-  const isCurrentMonth = currentDate.getMonth() === today.getMonth() && 
-                        currentDate.getFullYear() === today.getFullYear();
+    if (info.event.extendedProps.type === 'event') {
+      if (window.confirm(`Remove event: "${info.event.title}"?`)) {
+        try {
+          await api.delete(`/calendar/events/${info.event.id}`);
+          info.event.remove();
+        } catch (err) {
+          alert(err?.response?.data?.msg || "Failed to delete");
+        }
+      }
+    }
+  };
 
-  const isJoiningMonth = joiningDate && 
-                        currentDate.getMonth() === joiningDate.getMonth() && 
-                        currentDate.getFullYear() === joiningDate.getFullYear();
+  const syncHolidays = async () => {
+    if (!canManageHolidays) return;
+
+    if (!window.confirm("Import official Indian Holidays for the current year?")) return;
+    try {
+      const res = await api.post('/calendar/bulk-sync');
+      alert(res.data.msg);
+      fetchInitialData();
+    } catch (err) {
+      alert(err?.response?.data?.msg || "Sync failed. Check console.");
+    }
+  };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-7xl mx-auto h-full flex flex-col">
+      {/* PAGE HEADER */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-brand-dark flex items-center gap-2">
-          <Calendar size={32} /> Attendance History
-        </h1>
-        
-        {/* LEGEND */}
-        <div className="flex gap-4 text-xs font-medium bg-white p-2 rounded-lg shadow-sm">
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-100 border border-green-500 rounded"></div> Present</div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-yellow-50 border border-yellow-500 rounded"></div> Late</div>
-          <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-100 border border-red-500 rounded"></div> Absent</div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <Clock className="text-brand-medium" /> Attendance & Scheduling
+          </h1>
+          <p className="text-sm text-gray-500">
+            View holidays, shifts, and personal attendance history.
+          </p>
         </div>
+
+        {/* ✅ SYNC BUTTON (Visible only to HR) */}
+        {canManageHolidays && (
+          <button
+            onClick={syncHolidays}
+            className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 text-sm font-bold transition"
+            disabled={loading}
+          >
+            <ShieldCheck size={16} className="text-green-600" /> Sync Indian Holidays
+          </button>
+        )}
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-brand-medium">
-        
-        {/* HEADER & NAV */}
-        <div className="flex justify-between items-center mb-6">
-             <h2 className="font-bold text-lg text-gray-700 capitalize">
-               {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-             </h2>
-             <div className="flex gap-2">
-                <button 
-                  onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} 
-                  disabled={isJoiningMonth}
-                  className={`flex items-center gap-1 px-4 py-2 rounded text-sm font-bold transition ${
-                    isJoiningMonth 
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                      : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                  }`}
-                >
-                  <ChevronLeft size={16} /> Prev
-                </button>
-                
-                <button 
-                  onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} 
-                  disabled={isCurrentMonth}
-                  className={`flex items-center gap-1 px-4 py-2 rounded text-sm font-bold transition ${
-                    isCurrentMonth 
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                      : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                  }`}
-                >
-                  Next <ChevronRight size={16} />
-                </button>
-             </div>
-        </div>
+      {/* ✅ CONTROL PANEL */}
+      {showControlPanel && (
+        <div className="bg-white p-4 rounded-xl shadow-md mb-6 border-l-4 border-indigo-500 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-6">
+            {/* TOGGLE MODE */}
+            <div className="flex flex-col">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">
+                Action Mode
+              </label>
 
-        {/* GRID */}
-        <div className="grid grid-cols-7 gap-4">
-          {/* Weekday Header */}
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-            <div key={d} className="text-center font-bold text-gray-400 uppercase text-xs mb-2">{d}</div>
-          ))}
-          
-          {/* Blank Spaces */}
-          {blanks.map((_, i) => (
-             <div key={`b-${i}`} className="min-h-[100px]"></div>
-          ))}
+              <select
+                className="border border-gray-300 rounded p-2 font-bold text-sm text-gray-700 outline-none focus:ring-2 focus:ring-indigo-200 bg-gray-50"
+                value={hrMode}
+                onChange={(e) => setHrMode(e.target.value)}
+              >
+                {/* ✅ Only HR can see/manage holidays */}
+                {canManageHolidays && <option value="holiday">Manage Holidays</option>}
 
-          {/* Days */}
-          {days.map(day => {
-            const status = getDayStatus(day);
-            let bgClass = "bg-gray-50 border-gray-200 text-gray-400"; // Default/Future
-            
-            if (status.type === 'present') bgClass = "bg-green-50 border-green-200 text-green-800";
-            if (status.type === 'late') bgClass = "bg-yellow-50 border-yellow-300 text-yellow-800";
-            if (status.type === 'absent') bgClass = "bg-red-50 border-red-200 text-red-800";
+                {/* ✅ HR + Managers can mark leave */}
+                {canMarkLeave && <option value="leave">Mark Employee Leave</option>}
+              </select>
+            </div>
 
-            return (
-              <div key={day} className={`border rounded-lg p-4 min-h-[100px] flex flex-col justify-between transition hover:shadow-md ${bgClass}`}>
-                <span className="font-bold text-lg">{day}</span>
-                <div className="text-xs font-bold flex flex-col gap-1">
-                  {status.type !== 'future' && (
-                    <div className="flex items-center gap-1">
-                      {status.type === 'present' && <Check size={14} />}
-                      {status.type === 'late' && <Clock size={14} />}
-                      {status.type === 'absent' && <X size={14} />}
-                      {status.label}
-                    </div>
-                  )}
+            {/* EMPLOYEE SELECTOR (Only visible in Leave Mode) */}
+            {hrMode === "leave" && canMarkLeave && (
+              <div className="flex flex-col animate-fadeIn">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">
+                  Select Staff
+                </label>
+                <div className="relative">
+                  <UserCheck className="absolute left-2 top-2.5 text-gray-400" size={14} />
+                  <select
+                    className="border border-gray-300 rounded p-2 pl-7 text-sm outline-none focus:ring-2 focus:ring-indigo-200 bg-white w-48"
+                    value={selectedUser}
+                    onChange={(e) => setSelectedUser(e.target.value)}
+                  >
+                    <option value="">-- Choose User --</option>
+                    {users.map(u => (
+                      <option key={u._id} value={u._id}>
+                        {u.name} ({u.role})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          <div className="text-right">
+            <p className="text-xs text-indigo-600 font-bold flex items-center justify-end gap-1">
+              OVERRIDE ACTIVE{" "}
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+              </span>
+            </p>
+            <p className="text-[10px] text-gray-400 mt-1">
+              {hrMode === 'holiday'
+                ? "HR: Click any date to add a Holiday."
+                : "Select a user, then click a date to mark Leave."}
+            </p>
+          </div>
         </div>
-      </div>
-      
-      <div className="mt-6 bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-800 text-sm flex items-start gap-3">
-        <AlertTriangle size={20} className="shrink-0" />
-        <p>
-          <strong>Policy Reminder:</strong> You are allowed a maximum of 16 hours and 30 minutes of "Offline" time per day. 
-          Exceeding this buffer will automatically mark the day as <strong>Absent</strong> regardless of login time.
-        </p>
+      )}
+
+      {/* CALENDAR COMPONENT */}
+      <div className="bg-white p-6 rounded-xl shadow-xl flex-1 border border-gray-100">
+        <FullCalendar
+          plugins={[dayGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          dateClick={handleDateClick}
+          eventClick={handleEventClick}
+          events={events}
+          height="auto"
+          contentHeight="auto"
+          headerToolbar={{
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth'
+          }}
+          eventDisplay="block"
+          dayMaxEvents={true}
+        />
       </div>
     </div>
   );
