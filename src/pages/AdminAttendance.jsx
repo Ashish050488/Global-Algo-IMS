@@ -200,7 +200,7 @@ const AdminAttendance = () => {
               if (status.type === 'late') bgClass = "bg-yellow-50 border-yellow-300 text-yellow-800";
 
               return (
-                <div key={day} className={`border rounded-lg p-3 min-h-[80px] flex flex-col justify-between transition hover:shadow-md ${bgClass}`}>
+                <div key={day} className={`border rounded-lg p-3 min-h-20 flex flex-col justify-between transition hover:shadow-md ${bgClass}`}>
                   <span className="font-bold text-md">{day}</span>
                   <div className="text-xs font-bold flex flex-col gap-1">
                     {status.type !== 'future' && (
